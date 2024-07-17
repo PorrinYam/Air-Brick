@@ -1,6 +1,6 @@
 import { observable, Observable } from '@legendapp/state';
 import { IWorkflowEntity, IWorkflowNodeData, TNodeType } from '../types';
-import { getNodeModule } from '../utils';
+import { convertToLiteFlowScript, getNodeModule } from '../utils';
 import { TNodeModuleMap } from '../components/common';
 import { createGraphProcessor, GraphProcessor } from './poc';
 import { generateSetObservable, uuid } from '@brick/core';
@@ -30,6 +30,9 @@ export class WorkflowAppProcessor {
 
     this.graphProcessor = createGraphProcessor().processor;
     this.nodeModule = getNodeModule();
+
+    // @ts-ignore
+    window._workflow = this.workflowData;
   }
 
   setWorkflowElement = (element: HTMLDivElement) => {
@@ -42,6 +45,15 @@ export class WorkflowAppProcessor {
    */
   setWorkflowData = (data: IWorkflowEntity) => {
     this.workflowData.set(data);
+  };
+
+  /**
+   *
+   * @returns
+   */
+  getLiteFlowElData = () => {
+    const treeLevelData = this.graphProcessor?.getTreeLevelData();
+    return convertToLiteFlowScript(treeLevelData, this.workflowData?.nodeMap?.get?.());
   };
 
   /**
@@ -66,6 +78,35 @@ export class WorkflowAppProcessor {
       draft.nodeMap.set({ ...draft.nodeMap.get(), [currNodeData.id]: currNodeData });
     });
     return currNodeData;
+  };
+
+  /**
+   * 删除节点数据
+   * @param id
+   */
+  removeNodeData = (id: IWorkflowNodeData['id']) => {
+    this.setWorkflowDataObservable((draft) => {
+      draft.nodeMap.set((value) => {
+        delete value[id];
+        return value;
+      });
+    });
+  };
+
+  /**
+   * 复制node节点数据
+   * @param id
+   */
+  copyNodeData = (id: IWorkflowNodeData['id'], newNodeId: string) => {
+    const currNode = this.workflowData.nodeMap.get()?.[id];
+
+    const newId = newNodeId || uuid();
+
+    const newNode = { ...currNode, id: newId, name: `${currNode.name}-复制` };
+
+    this.addNodeData(currNode.type, newNode);
+
+    return newNode;
   };
 
   /**
